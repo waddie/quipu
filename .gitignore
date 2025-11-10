@@ -1,4 +1,5 @@
-/target
+./*.qp
 .DS_Store
 .claude/*
+/target
 CLAUDE.md

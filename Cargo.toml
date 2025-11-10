@@ -1,0 +1,30 @@
+[package]
+name = "typecast"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# PTY management
+portable-pty = "0.9"
+
+# Parsing
+nom = "8.0"
+
+# Async runtime & timing
+tokio = { version = "1", features = ["full"] }
+
+# Random jitter
+rand = "0.8"
+
+# Signal handling
+ctrlc = "3.4"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Terminal control
+crossterm = "0.28"
