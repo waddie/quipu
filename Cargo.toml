@@ -9,7 +9,7 @@ anyhow = "1.0"
 # CLI
 clap = { version = "4", features = ["derive"] }
 # Terminal control
-crossterm = "0.28"
+crossterm = "0.29"
 # Signal handling
 ctrlc = "3.4"
 # Parsing
