@@ -17,7 +17,7 @@ nom = "8.0"
 # PTY management
 portable-pty = "0.9"
 # Random jitter
-rand = "0.8"
+rand = "0.9"
 thiserror = "2.0"
 # Async runtime & timing
 tokio = { version = "1", features = ["full"] }
