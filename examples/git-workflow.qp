@@ -1,0 +1,73 @@
+@ size:100:30
+@ speed:0.08
+@ jitter:0.02
+
+# Git Workflow Demo
+# This demonstrates a typical git workflow with branch creation,
+# commits, and merging
+
+# Create a temporary demo directory
+$ cd /tmp<ret>
+@ wait:0.5
+$ mkdir -p git-demo && cd git-demo<ret>
+@ wait:0.5
+
+# Initialize git repository
+$ git init<ret>
+@ wait:1.0
+
+# Create initial file
+$ echo "# My Project" > README.md<ret>
+@ wait:0.3
+$ git add README.md<ret>
+@ wait:0.3
+$ git commit -m "Initial commit"<ret>
+@ wait:1.5
+
+# Check status
+$ git status<ret>
+@ wait:1.0
+
+# Create a new feature branch
+$ git checkout -b feature/add-docs<ret>
+@ wait:1.0
+
+# Add documentation
+$ echo "## Documentation" >> README.md<ret>
+@ wait:0.3
+$ echo "This is a demo project." >> README.md<ret>
+@ wait:0.5
+
+# View changes
+$ git diff<ret>
+@ wait:2.0
+
+# Stage and commit changes
+$ git add .<ret>
+@ wait:0.3
+$ git commit -m "Add documentation section"<ret>
+@ wait:1.5
+
+# View commit history
+$ git log --oneline<ret>
+@ wait:2.0
+
+# Switch back to main branch
+$ git checkout main<ret>
+@ wait:1.0
+
+# Merge feature branch
+$ git merge feature/add-docs<ret>
+@ wait:1.5
+
+# View final result
+$ cat README.md<ret>
+@ wait:2.0
+
+# Clean up
+$ cd ..<ret>
+@ wait:0.3
+$ rm -rf git-demo<ret>
+@ wait:0.5
+
+$ clear<ret>

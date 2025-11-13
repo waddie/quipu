@@ -1,0 +1,131 @@
+@ size:100:30
+@ speed:0.08
+@ jitter:0.02
+
+# Neovim Editing Demo
+# This demonstrates various neovim editing capabilities including
+# motions, text objects, search/replace, and visual mode
+
+# Create a temporary file to edit
+$ cd /tmp<ret>
+@ wait:0.5
+$ echo "function greet(name) {" > demo.txt<ret>
+$ echo "  console.log('Hello, ' + name + '!');" >> demo.txt<ret>
+$ echo "  return true;" >> demo.txt<ret>
+$ echo "}" >> demo.txt<ret>
+$ echo "" >> demo.txt<ret>
+$ echo "function farewell(name) {" >> demo.txt<ret>
+$ echo "  console.log('Goodbye, ' + name);" >> demo.txt<ret>
+$ echo "}" >> demo.txt<ret>
+@ wait:1.0
+
+# Open file in neovim
+$ nvim demo.txt<ret>
+@ wait:1.5
+
+# Navigate to first function
+$ /greet<ret>
+@ wait:1.0
+$ n
+@ wait:0.5
+
+# Use text objects to change function name
+$ ciw
+@ wait:0.3
+$ welcome<esc>
+@ wait:1.0
+
+# Navigate into the function body
+$ j
+@ wait:0.3
+$ f'
+@ wait:0.5
+
+# Change the greeting message
+$ ci'
+@ wait:0.3
+$ Welcome<esc>
+@ wait:1.0
+
+# Add a new line above
+$ O
+@ wait:0.3
+$ <space><space>// Welcome message<esc>
+@ wait:1.0
+
+# Navigate to the return statement
+$ j
+@ wait:0.3
+$ $
+@ wait:0.5
+
+# Change return value
+$ cw
+@ wait:0.2
+$ false<esc>
+@ wait:1.0
+
+# Jump to second function
+$ /farewell<ret>
+@ wait:1.0
+
+# Delete inside parentheses and add parameter
+$ f(
+@ wait:0.3
+$ a
+@ wait:0.2
+$ name, formal<esc>
+@ wait:1.0
+
+# Visual line select and yank
+$ j
+@ wait:0.3
+$ V
+@ wait:0.5
+$ y
+@ wait:0.5
+
+# Paste below
+$ p
+@ wait:1.0
+
+# Search and replace in current line
+$ :s/Goodbye/Farewell<ret>
+@ wait:1.5
+
+# Global search and replace
+$ :%s/console/logger/g<ret>
+@ wait:2.0
+
+# Add a new function at the end
+$ G
+@ wait:0.5
+$ o<ret>
+@ wait:0.3
+$ function main() {<ret>
+$   welcome('Alice');<ret>
+$   farewell('Alice', true);<ret>
+$ }<esc>
+@ wait:1.5
+
+# Format and indent
+$ gg
+@ wait:0.3
+$ =G
+@ wait:1.0
+
+# Save and view final result
+$ :w<ret>
+@ wait:1.0
+$ :!cat %<ret>
+@ wait:3.0
+
+# Exit neovim
+$ <ret>
+$ :q<ret>
+@ wait:0.5
+
+# Clean up
+$ rm demo.txt<ret>
+@ wait:0.5
+$ clear<ret>

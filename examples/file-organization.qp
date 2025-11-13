@@ -1,0 +1,97 @@
+@ size:100:30
+@ speed:0.08
+@ jitter:0.02
+
+# File Organization Demo
+# This demonstrates organizing files by type using basic shell commands
+# including find, grep, and file operations
+
+# Create a temporary workspace
+$ cd /tmp<ret>
+@ wait:0.5
+$ mkdir -p file-demo && cd file-demo<ret>
+@ wait:0.5
+
+# Create various file types
+$ echo "console.log('Hello');" > app.js<ret>
+$ echo "body { color: blue; }" > styles.css<ret>
+$ echo "Title Page" > index.html<ret>
+$ echo "# Notes" > README.md<ret>
+$ echo '{"name": "demo"}' > package.json<ret>
+$ echo "TODO: Add tests" > TODO.txt<ret>
+@ wait:1.0
+
+# List all files
+$ ls -la<ret>
+@ wait:2.0
+
+# Create organization structure
+$ mkdir -p src/js src/css src/html docs config<ret>
+@ wait:1.0
+
+# Find and move JavaScript files
+$ find . -maxdepth 1 -name "*.js" -type f<ret>
+@ wait:1.5
+$ mv *.js src/js/<ret>
+@ wait:0.5
+
+# Move CSS files
+$ mv *.css src/css/<ret>
+@ wait:0.5
+
+# Move HTML files
+$ mv *.html src/html/<ret>
+@ wait:0.5
+
+# Move documentation
+$ mv *.md *.txt docs/<ret>
+@ wait:0.5
+
+# Move configuration files
+$ mv *.json config/<ret>
+@ wait:1.0
+
+# Display new structure
+$ tree<ret>
+@ wait:2.0
+
+# Search for specific content across files
+$ echo "Searching for 'Hello' in all files..."<ret>
+@ wait:1.0
+$ grep -r "Hello" .<ret>
+@ wait:1.5
+
+# Count files by type
+$ echo "File count by directory:"<ret>
+@ wait:0.5
+$ find . -type f | wc -l<ret>
+@ wait:2.0
+
+# Display file sizes
+$ echo "File sizes:"<ret>
+@ wait:0.5
+$ du -h .<ret>
+@ wait:2.0
+
+# Create a summary report
+$ echo "# Project Organization Summary" > SUMMARY.md<ret>
+$ echo "" >> SUMMARY.md<ret>
+$ echo "## Structure" >> SUMMARY.md<ret>
+$ echo "- src/: Source files" >> SUMMARY.md<ret>
+$ echo "  - js/: JavaScript files" >> SUMMARY.md<ret>
+$ echo "  - css/: Stylesheets" >> SUMMARY.md<ret>
+$ echo "  - html/: HTML templates" >> SUMMARY.md<ret>
+$ echo "- docs/: Documentation" >> SUMMARY.md<ret>
+$ echo "- config/: Configuration files" >> SUMMARY.md<ret>
+@ wait:1.0
+
+$ cat SUMMARY.md<ret>
+@ wait:2.0
+
+# Clean up
+$ cd ..<ret>
+@ wait:0.3
+$ rm -rf file-demo<ret>
+@ wait:0.5
+
+$ clear<ret>
