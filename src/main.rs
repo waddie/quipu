@@ -39,11 +39,9 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Read the script file
     let script_content = std::fs::read_to_string(&args.script)
         .with_context(|| format!("Failed to read script file: {}", args.script.display()))?;
 
-    // Parse the script
     let script =
         parser::parse_script(&script_content).map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
 
@@ -81,10 +79,8 @@ async fn main() -> Result<()> {
     println!("Starting playback in 1 second...");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    // Create PTY manager with specified size
     let pty = pty::PtyManager::new(&shell, cols, rows).context("Failed to create PTY")?;
 
-    // Create playback engine and execute
     let mut engine =
         playback::PlaybackEngine::new(pty).context("Failed to create playback engine")?;
 

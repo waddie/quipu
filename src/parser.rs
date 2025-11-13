@@ -31,12 +31,10 @@ use std::time::Duration;
 
 use crate::types::{Command, Script};
 
-/// Parse a floating point number
 fn parse_float(input: &str) -> IResult<&str, f64> {
     nom::number::complete::double(input)
 }
 
-/// Parse a speed directive: @ speed:0.2
 fn parse_speed(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -45,7 +43,6 @@ fn parse_speed(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetSpeed(value)))
 }
 
-/// Parse a jitter directive: @ jitter:0.02
 fn parse_jitter(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -54,7 +51,6 @@ fn parse_jitter(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetJitter(value)))
 }
 
-/// Parse a wait directive: @ wait:2.0
 fn parse_wait(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -63,7 +59,6 @@ fn parse_wait(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::Wait(Duration::from_secs_f64(value))))
 }
 
-/// Parse a shell directive: @ shell:/bin/zsh
 fn parse_shell(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -72,7 +67,6 @@ fn parse_shell(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetShell(shell.trim().to_string())))
 }
 
-/// Parse a size directive: @ size:120:40
 fn parse_size(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -83,7 +77,6 @@ fn parse_size(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetSize(cols, rows)))
 }
 
-/// Parse any directive line (starts with @)
 fn parse_directive(input: &str) -> IResult<&str, Command> {
     alt((
         parse_speed,
@@ -95,29 +88,23 @@ fn parse_directive(input: &str) -> IResult<&str, Command> {
     .parse(input)
 }
 
-/// Parse a comment line (starts with #) - returns None
 fn parse_comment(input: &str) -> IResult<&str, ()> {
     let (input, _) = char('#')(input)?;
     let (input, _) = not_line_ending(input)?;
     Ok((input, ()))
 }
 
-/// Parse a single special key or modifier combination: <C-x> <esc> <space> etc.
 fn parse_special_key(input: &str) -> IResult<&str, String> {
     let (input, _) = char('<')(input)?;
     let (input, key_spec) = take_until(">")(input)?;
     let (input, _) = char('>')(input)?;
 
-    // Convert key specification to appropriate escape sequence
     let escape_seq = match key_spec {
-        // Special keys
         "esc" => "\x1b".to_string(),
         "space" => " ".to_string(),
         "ret" | "return" | "enter" => "\r".to_string(),
         "tab" => "\t".to_string(),
         "backspace" | "bs" => "\x7f".to_string(),
-
-        // Function keys
         "F1" => "\x1bOP".to_string(),
         "F2" => "\x1bOQ".to_string(),
         "F3" => "\x1bOR".to_string(),
@@ -130,34 +117,23 @@ fn parse_special_key(input: &str) -> IResult<&str, String> {
         "F10" => "\x1b[21~".to_string(),
         "F11" => "\x1b[23~".to_string(),
         "F12" => "\x1b[24~".to_string(),
-
-        // Arrow keys
         "up" => "\x1b[A".to_string(),
         "down" => "\x1b[B".to_string(),
         "right" => "\x1b[C".to_string(),
         "left" => "\x1b[D".to_string(),
-
-        // Home/End/etc
         "home" => "\x1b[H".to_string(),
         "end" => "\x1b[F".to_string(),
         "pageup" | "pgup" => "\x1b[5~".to_string(),
         "pagedown" | "pgdn" => "\x1b[6~".to_string(),
         "insert" | "ins" => "\x1b[2~".to_string(),
         "delete" | "del" => "\x1b[3~".to_string(),
-
-        // Modifier combinations
         spec if spec.contains('-') => parse_modifier_combo(spec),
-
-        _ => {
-            // Unknown key spec, return as-is with angle brackets
-            format!("<{}>", key_spec)
-        }
+        _ => format!("<{}>", key_spec),
     };
 
     Ok((input, escape_seq))
 }
 
-/// Parse modifier combinations like C-x, A-x, S-x, C-S-x, etc.
 fn parse_modifier_combo(spec: &str) -> String {
     let parts: Vec<&str> = spec.split('-').collect();
 
@@ -181,16 +157,13 @@ fn parse_modifier_combo(spec: &str) -> String {
         }
     }
 
-    // First, resolve the base key to its escape sequence
+    // Resolve the base key to its escape sequence first
     let base_key = match key {
-        // Special keys that resolve to their escape sequences
         "esc" => "\x1b",
         "space" => " ",
         "ret" | "return" | "enter" => "\r",
         "tab" => "\t",
         "backspace" | "bs" => "\x7f",
-
-        // Function keys
         "F1" => "\x1bOP",
         "F2" => "\x1bOQ",
         "F3" => "\x1bOR",
@@ -203,69 +176,57 @@ fn parse_modifier_combo(spec: &str) -> String {
         "F10" => "\x1b[21~",
         "F11" => "\x1b[23~",
         "F12" => "\x1b[24~",
-
-        // Arrow keys
         "up" => "\x1b[A",
         "down" => "\x1b[B",
         "right" => "\x1b[C",
         "left" => "\x1b[D",
-
-        // Home/End/etc
         "home" => "\x1b[H",
         "end" => "\x1b[F",
         "pageup" | "pgup" => "\x1b[5~",
         "pagedown" | "pgdn" => "\x1b[6~",
         "insert" | "ins" => "\x1b[2~",
         "delete" | "del" => "\x1b[3~",
-
-        // Single character key (letter, number, symbol) - leave as-is for modifier processing
+        // Single character - leave as-is for modifier processing below
         _ if key.len() == 1 => key,
-
-        // Unknown special key
         _ => return format!("<{}>", spec),
     };
 
-    // Now apply modifiers
-
-    // Handle Ctrl combinations
+    // Apply modifiers to the base key
     if has_ctrl && !has_alt && !has_shift {
-        // For single character keys
         if key.len() == 1 {
             let ch = key.chars().next().unwrap().to_ascii_lowercase();
             if ch.is_ascii_lowercase() {
-                // Ctrl-A through Ctrl-Z are ASCII 1-26
+                // Ctrl-letter maps to ASCII 1-26
                 let code = (ch as u8) - b'a' + 1;
                 return std::char::from_u32(code as u32).unwrap().to_string();
             } else if ch == ' ' {
-                return "\x00".to_string(); // Ctrl-Space
+                return "\x00".to_string();
             } else if ch == '[' {
-                return "\x1b".to_string(); // Ctrl-[ is ESC
+                return "\x1b".to_string(); // Ctrl-[ maps to ESC
             } else if ch == ']' {
-                return "\x1d".to_string(); // Ctrl-]
+                return "\x1d".to_string();
             } else if ch == '\\' {
-                return "\x1c".to_string(); // Ctrl-\
+                return "\x1c".to_string();
             }
         } else {
-            // For special keys with Ctrl
             match key {
                 "space" => return "\x00".to_string(),
-                // Most other special keys don't have meaningful Ctrl combinations
+                // Special keys don't have standard Ctrl combinations
                 _ => return format!("<{}>", spec),
             }
         }
     }
 
-    // Handle Alt combinations (prepend ESC to the base key)
+    // Alt combinations: prepend ESC to the base key
     if has_alt && !has_ctrl {
         return format!("\x1b{}", base_key);
     }
 
-    // Handle Shift (uppercase for single character keys)
+    // Shift: uppercase single character keys
     if has_shift && !has_ctrl && !has_alt && key.len() == 1 {
         return key.to_uppercase();
     }
 
-    // Handle Ctrl-Shift combinations
     if has_ctrl && has_shift && !has_alt && key.len() == 1 {
         let ch = key.chars().next().unwrap().to_ascii_uppercase();
         if ch.is_ascii_uppercase() {
@@ -274,9 +235,8 @@ fn parse_modifier_combo(spec: &str) -> String {
         }
     }
 
-    // Handle Ctrl-Alt combinations
+    // Ctrl-Alt: ESC followed by Ctrl-key
     if has_ctrl && has_alt {
-        // For single character keys: Ctrl-Alt-key is ESC followed by Ctrl-key
         if key.len() == 1 {
             let ch = key.chars().next().unwrap().to_ascii_lowercase();
             if ch.is_ascii_lowercase() {
@@ -284,41 +244,33 @@ fn parse_modifier_combo(spec: &str) -> String {
                 return format!("\x1b{}", std::char::from_u32(code as u32).unwrap());
             }
         } else {
-            // For special keys: Ctrl-Alt-key is ESC followed by base key
-            // (Ctrl doesn't meaningfully apply to most special keys)
             return format!("\x1b{}", base_key);
         }
     }
 
-    // Fallback: return as-is
     format!("<{}>", spec)
 }
 
-/// Parse typing text with special keys
 fn parse_type_content(input: &str) -> String {
     let mut result = String::new();
     let mut remaining = input;
 
     while !remaining.is_empty() {
         if remaining.starts_with("\\<") || remaining.starts_with("\\>") {
-            // Escaped < or >
             result.push_str(&remaining[1..2]);
             remaining = &remaining[2..];
         } else if remaining.starts_with('<') {
-            // Try to parse special key
             match parse_special_key(remaining) {
                 Ok((rest, key_seq)) => {
                     result.push_str(&key_seq);
                     remaining = rest;
                 }
                 Err(_) => {
-                    // Not a valid special key, treat as literal
                     result.push('<');
                     remaining = &remaining[1..];
                 }
             }
         } else {
-            // Regular character
             result.push(remaining.chars().next().unwrap());
             remaining = &remaining[remaining.chars().next().unwrap().len_utf8()..];
         }
@@ -327,7 +279,6 @@ fn parse_type_content(input: &str) -> String {
     result
 }
 
-/// Parse a typing line: $ text to type
 fn parse_type(input: &str) -> IResult<&str, Command> {
     let (input, _) = char('$')(input)?;
     let (input, _) = space0(input)?;
@@ -337,7 +288,6 @@ fn parse_type(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::Type(processed_text)))
 }
 
-/// Parse a single line (directive, comment, type, or empty)
 fn parse_line(input: &str) -> IResult<&str, Option<Command>> {
     alt((
         map(parse_directive, Some),
@@ -347,20 +297,16 @@ fn parse_line(input: &str) -> IResult<&str, Option<Command>> {
     .parse(input)
 }
 
-/// Parse an entire script
 pub fn parse_script(input: &str) -> Result<Script, String> {
-    // Split by lines and parse each
     let mut commands = Vec::new();
 
     for (line_num, line) in input.lines().enumerate() {
         let trimmed = line.trim();
 
-        // Skip empty lines
         if trimmed.is_empty() {
             continue;
         }
 
-        // Try to parse the line
         match parse_line(trimmed) {
             Ok((remaining, Some(cmd))) => {
                 if !remaining.trim().is_empty() {
@@ -372,9 +318,7 @@ pub fn parse_script(input: &str) -> Result<Script, String> {
                 }
                 commands.push(cmd);
             }
-            Ok((_, None)) => {
-                // Comment or empty line - skip
-            }
+            Ok((_, None)) => {}
             Err(e) => {
                 return Err(format!("Line {}: Parse error: {}", line_num + 1, e));
             }

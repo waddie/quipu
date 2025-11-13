@@ -17,42 +17,35 @@
 
 use std::time::Duration;
 
-/// A command from the typecast script
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    /// Set the speed (time between keystrokes)
     SetSpeed(f64),
-    /// Set the jitter (random variation in timing)
     SetJitter(f64),
-    /// Wait for a duration
     Wait(Duration),
-    /// Set the shell to use (must come before any Type commands)
+    // Must come before any Type commands
     SetShell(String),
-    /// Set the terminal size (cols, rows) - must come before PTY creation
+    // Must come before PTY creation
     SetSize(u16, u16),
-    /// Type a sequence of text/keystrokes
     Type(String),
 }
 
-/// Configuration for playback timing
 #[derive(Debug, Clone)]
 pub struct PlaybackConfig {
-    /// Base time between keystrokes in seconds
+    // Base time between keystrokes in seconds
     pub speed: f64,
-    /// Maximum jitter as a fraction (0.0 to 1.0) of speed
+    // Jitter as a fraction (0.0 to 1.0) of speed
     pub jitter: f64,
 }
 
 impl Default for PlaybackConfig {
     fn default() -> Self {
         Self {
-            speed: 0.1,  // 100ms between keystrokes
-            jitter: 0.0, // No jitter by default
+            speed: 0.1,  // 100ms per keystroke
+            jitter: 0.0, // No jitter
         }
     }
 }
 
-/// Result of parsing a script
 #[derive(Debug)]
 pub struct Script {
     pub commands: Vec<Command>,
