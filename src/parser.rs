@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Script parser for typecast files
+//! Script parser for quipu files
 //!
 //! Parses scripts with the format:
 //! - @ directives (speed, jitter, wait)

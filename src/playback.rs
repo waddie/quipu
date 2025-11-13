@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! Playback engine for typecast scripts
+//! Playback engine for quipu scripts
 //!
 //! Executes parsed commands with proper timing and jitter
 

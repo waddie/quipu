@@ -1,0 +1,37 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "quipu",
+      "camelcase": "quipu",
+      "title": "quipu",
+      "scope": "source.quipu",
+      "file-types": ["qp"],
+      "injection-regex": "^quipu$",
+      "class-name": "TreeSitterQuipu"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for quipu .qp scripts",
+    "authors": [
+      {
+        "name": "Tom Waddington",
+        "email": "tom@waddington.dev"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/waddie/quipu"
+    }
+  },
+  "bindings": {
+    "c": true,
+    "go": true,
+    "node": true,
+    "python": true,
+    "rust": true,
+    "swift": true,
+    "zig": false
+  }
+}

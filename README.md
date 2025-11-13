@@ -1,4 +1,4 @@
-# typecast
+# quipu
 
 Yet another terminal keyboard entry scripting tool – good for recording terminal demos with tools like asciinema.
 
@@ -18,8 +18,8 @@ cargo install --path .
 Or build from source:
 
 ```sh
-git clone https://github.com/waddie/typecast.git
-cd typecast
+git clone https://github.com/waddie/quipu.git
+cd quipu
 cargo build --release
 ```
 
@@ -32,7 +32,7 @@ Create a script file (`.qp` extension) with your keyboard sequences:
 @ jitter:0.03
 
 # This is a comment
-$ echo "Hello from typecast!"<ret>
+$ echo "Hello from quipu!"<ret>
 
 @ wait:1.0
 
@@ -48,13 +48,13 @@ $ iHello World!<esc>:wq<ret>
 Run the script:
 
 ```sh
-typecast script.qp
+quipu script.qp
 ```
 
-By default, typecast uses your current shell (`$SHELL`). To use a different shell:
+By default, quipu uses your current shell (`$SHELL`). To use a different shell:
 
 ```sh
-typecast --shell /bin/bash script.qp
+quipu --shell /bin/bash script.qp
 ```
 
 Or use the shell directive in your script:
@@ -67,7 +67,7 @@ $ echo "Running in: $SHELL"<ret>
 Record with asciinema:
 
 ```sh
-asciinema rec demo.cast -c "typecast script.qp"
+asciinema rec demo.cast -c "quipu script.qp"
 ```
 
 ## Script Format
@@ -96,6 +96,7 @@ $ echo "regular text"
 Use angle brackets for special keys:
 
 **Basic keys**:
+
 - `<esc>` - Escape
 - `<ret>`, `<return>`, `<enter>` - Return/Enter
 - `<space>` - Space
@@ -103,12 +104,15 @@ Use angle brackets for special keys:
 - `<backspace>`, `<bs>` - Backspace
 
 **Function keys**:
+
 - `<F1>` through `<F12>`
 
 **Arrow keys**:
+
 - `<up>`, `<down>`, `<left>`, `<right>`
 
 **Navigation**:
+
 - `<home>`, `<end>`
 - `<pageup>`, `<pagedown>`
 - `<insert>`, `<delete>`

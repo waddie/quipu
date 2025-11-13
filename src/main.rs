@@ -23,7 +23,7 @@ use clap::Parser as ClapParser;
 use std::path::PathBuf;
 
 #[derive(ClapParser, Debug)]
-#[command(name = "typecast")]
+#[command(name = "quipu")]
 #[command(about = "Script keyboard entry in the terminal", long_about = None)]
 struct Args {
     /// The script file to execute

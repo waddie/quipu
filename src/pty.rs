@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//! PTY management for typecast
+//! PTY management for quipu
 //!
 //! Handles spawning processes in a PTY and sending keystrokes to them
 
