@@ -18,7 +18,7 @@
 //! Executes parsed commands with proper timing and jitter
 
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
