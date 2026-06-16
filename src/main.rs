@@ -33,6 +33,10 @@ struct Args {
     /// Shell to use for the PTY session (defaults to current shell)
     #[arg(short, long)]
     shell: Option<String>,
+
+    /// Suppress informational status messages
+    #[arg(short, long)]
+    quiet: bool,
 }
 
 #[tokio::main]
@@ -73,10 +77,12 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!("Parsed {} commands", script.commands.len());
-    println!("Using shell: {}", shell);
-    println!("Terminal size: {}x{}", cols, rows);
-    println!("Starting playback in 1 second...");
+    if !args.quiet {
+        println!("Parsed {} commands", script.commands.len());
+        println!("Using shell: {}", shell);
+        println!("Terminal size: {}x{}", cols, rows);
+        println!("Starting playback in 1 second...");
+    }
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     let pty = pty::PtyManager::new(&shell, cols, rows).context("Failed to create PTY")?;
@@ -93,7 +99,9 @@ async fn main() -> Result<()> {
     // before printing completion message
     drop(engine);
 
-    println!("\nPlayback complete!");
+    if !args.quiet {
+        println!("\nPlayback complete!");
+    }
 
     // Brief pause so user can see the result
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
