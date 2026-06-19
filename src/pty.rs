@@ -21,6 +21,7 @@ use anyhow::{Context, Result};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{IsTerminal, Read, Write};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -49,8 +50,13 @@ impl Drop for RawModeGuard {
     }
 }
 
+// Shared, closable handle to the PTY master writer. Both the scripted playback
+// and the stdin-forwarding thread write through this. The Option lets Drop close
+// the writer to signal EOF even though the forwarding thread holds an Arc clone.
+type SharedWriter = Arc<Mutex<Option<Box<dyn Write + Send>>>>;
+
 pub struct PtyManager {
-    writer: Option<Box<dyn Write + Send>>,
+    writer: SharedWriter,
     _reader_thread: Option<thread::JoinHandle<()>>,
     _raw_mode_guard: RawModeGuard,
 }
@@ -88,6 +94,42 @@ impl PtyManager {
             .master
             .take_writer()
             .context("Failed to get PTY writer")?;
+        let writer: SharedWriter = Arc::new(Mutex::new(Some(writer)));
+
+        // Forward the real terminal's stdin into the PTY master. Without this,
+        // terminal query/response protocols break: a program in the PTY sends a
+        // query (e.g. ESC[6n for cursor position), the real terminal replies on
+        // our stdin, and the reply never reaches the program. It then mispositions
+        // the cursor and eventually times out. Started here so early prompt
+        // queries (e.g. after a `cd`) are answered. Raw mode is already enabled,
+        // so stdin bytes arrive verbatim. The thread is detached; it may block in
+        // read at shutdown, which is fine since the process exits after playback.
+        let stdin_writer = writer.clone();
+        thread::spawn(move || {
+            let mut stdin = std::io::stdin();
+            let mut buffer = [0u8; 1024];
+
+            loop {
+                match stdin.read(&mut buffer) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let mut guard = match stdin_writer.lock() {
+                            Ok(g) => g,
+                            Err(_) => break,
+                        };
+                        match guard.as_mut() {
+                            Some(w) => {
+                                if w.write_all(&buffer[..n]).is_err() || w.flush().is_err() {
+                                    break;
+                                }
+                            }
+                            None => break,
+                        }
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
 
         let reader_thread = thread::spawn(move || {
             let mut reader = reader;
@@ -111,14 +153,18 @@ impl PtyManager {
         });
 
         Ok(Self {
-            writer: Some(writer),
+            writer,
             _reader_thread: Some(reader_thread),
             _raw_mode_guard: raw_mode_guard,
         })
     }
 
     pub fn send_keystroke(&mut self, data: &str) -> Result<()> {
-        let writer = self.writer.as_mut().context("PTY writer has been closed")?;
+        let mut guard = self
+            .writer
+            .lock()
+            .map_err(|_| anyhow::anyhow!("PTY writer lock poisoned"))?;
+        let writer = guard.as_mut().context("PTY writer has been closed")?;
         writer
             .write_all(data.as_bytes())
             .context("Failed to write to PTY")?;
@@ -135,8 +181,11 @@ impl PtyManager {
 
 impl Drop for PtyManager {
     fn drop(&mut self) {
-        // Close writer to signal EOF
-        drop(self.writer.take());
+        // Close the writer to signal EOF. This drops the writer Box regardless of
+        // the detached stdin-forwarding thread's surviving Arc clone.
+        if let Ok(mut guard) = self.writer.lock() {
+            let _ = guard.take();
+        }
 
         // Wait for reader thread to ensure all output is flushed before raw mode is disabled
         if let Some(handle) = self._reader_thread.take() {
@@ -146,13 +195,8 @@ impl Drop for PtyManager {
         // Allow time for parent terminal to respond to any terminal queries
         thread::sleep(Duration::from_millis(100));
 
-        // Drain stdin to prevent terminal query responses from appearing as garbage after exit
-        if std::io::stdin().is_terminal() {
-            use crossterm::event::{poll, read};
-            while poll(Duration::from_millis(0)).unwrap_or(false) {
-                let _ = read();
-            }
-        }
+        // Note: stdin is owned by the forwarding thread, which relays terminal
+        // query responses into the PTY live, so there is no backlog to drain here.
 
         // _raw_mode_guard drops here, restoring terminal state
     }
