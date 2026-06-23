@@ -128,7 +128,7 @@ fn parse_special_key(input: &str) -> IResult<&str, String> {
         "insert" | "ins" => "\x1b[2~".to_string(),
         "delete" | "del" => "\x1b[3~".to_string(),
         spec if spec.contains('-') => parse_modifier_combo(spec),
-        _ => format!("<{}>", key_spec),
+        _ => format!("<{key_spec}>"),
     };
 
     Ok((input, escape_seq))
@@ -138,7 +138,7 @@ fn parse_modifier_combo(spec: &str) -> String {
     let parts: Vec<&str> = spec.split('-').collect();
 
     if parts.len() < 2 {
-        return format!("<{}>", spec);
+        return format!("<{spec}>");
     }
 
     let (modifiers, key) = parts.split_at(parts.len() - 1);
@@ -188,7 +188,7 @@ fn parse_modifier_combo(spec: &str) -> String {
         "delete" | "del" => "\x1b[3~",
         // Single character - leave as-is for modifier processing below
         _ if key.len() == 1 => key,
-        _ => return format!("<{}>", spec),
+        _ => return format!("<{spec}>"),
     };
 
     // Apply modifiers to the base key
@@ -198,7 +198,7 @@ fn parse_modifier_combo(spec: &str) -> String {
             if ch.is_ascii_lowercase() {
                 // Ctrl-letter maps to ASCII 1-26
                 let code = (ch as u8) - b'a' + 1;
-                return std::char::from_u32(code as u32).unwrap().to_string();
+                return std::char::from_u32(u32::from(code)).unwrap().to_string();
             } else if ch == ' ' {
                 return "\x00".to_string();
             } else if ch == '[' {
@@ -212,14 +212,14 @@ fn parse_modifier_combo(spec: &str) -> String {
             match key {
                 "space" => return "\x00".to_string(),
                 // Special keys don't have standard Ctrl combinations
-                _ => return format!("<{}>", spec),
+                _ => return format!("<{spec}>"),
             }
         }
     }
 
     // Alt combinations: prepend ESC to the base key
     if has_alt && !has_ctrl {
-        return format!("\x1b{}", base_key);
+        return format!("\x1b{base_key}");
     }
 
     // Shift: uppercase single character keys
@@ -231,7 +231,7 @@ fn parse_modifier_combo(spec: &str) -> String {
         let ch = key.chars().next().unwrap().to_ascii_uppercase();
         if ch.is_ascii_uppercase() {
             let code = (ch as u8) - b'A' + 1;
-            return std::char::from_u32(code as u32).unwrap().to_string();
+            return std::char::from_u32(u32::from(code)).unwrap().to_string();
         }
     }
 
@@ -241,14 +241,14 @@ fn parse_modifier_combo(spec: &str) -> String {
             let ch = key.chars().next().unwrap().to_ascii_lowercase();
             if ch.is_ascii_lowercase() {
                 let code = (ch as u8) - b'a' + 1;
-                return format!("\x1b{}", std::char::from_u32(code as u32).unwrap());
+                return format!("\x1b{}", std::char::from_u32(u32::from(code)).unwrap());
             }
         } else {
-            return format!("\x1b{}", base_key);
+            return format!("\x1b{base_key}");
         }
     }
 
-    format!("<{}>", spec)
+    format!("<{spec}>")
 }
 
 fn parse_type_content(input: &str) -> String {
@@ -260,15 +260,12 @@ fn parse_type_content(input: &str) -> String {
             result.push_str(&remaining[1..2]);
             remaining = &remaining[2..];
         } else if remaining.starts_with('<') {
-            match parse_special_key(remaining) {
-                Ok((rest, key_seq)) => {
-                    result.push_str(&key_seq);
-                    remaining = rest;
-                }
-                Err(_) => {
-                    result.push('<');
-                    remaining = &remaining[1..];
-                }
+            if let Ok((rest, key_seq)) = parse_special_key(remaining) {
+                result.push_str(&key_seq);
+                remaining = rest;
+            } else {
+                result.push('<');
+                remaining = &remaining[1..];
             }
         } else {
             result.push(remaining.chars().next().unwrap());
@@ -418,16 +415,16 @@ mod tests {
 
     #[test]
     fn test_parse_script() {
-        let input = r#"@ speed:0.2
+        let input = r"@ speed:0.2
 @ jitter:0.02
 # This is a comment
 $ echo hello
 @ wait:1.0
 $ ls -la
-"#;
+";
         let result = parse_script(input);
         if let Err(e) = &result {
-            eprintln!("Parse error: {}", e);
+            eprintln!("Parse error: {e}");
         }
         assert!(result.is_ok());
         let script = result.unwrap();

@@ -56,6 +56,11 @@ impl PlaybackEngine {
         self.running.load(Ordering::SeqCst)
     }
 
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss
+    )]
     fn calculate_delay(&self) -> Duration {
         let mut rng = rand::rng();
         let base_ms = (self.config.speed * 1000.0) as u64;
@@ -70,7 +75,7 @@ impl PlaybackEngine {
         }
     }
 
-    fn escape_sequence_length(&self, bytes: &[u8]) -> usize {
+    fn escape_sequence_length(bytes: &[u8]) -> usize {
         if bytes.is_empty() || bytes[0] != 0x1b {
             return 1;
         }
@@ -111,11 +116,8 @@ impl PlaybackEngine {
             Command::Wait(duration) => {
                 sleep(*duration).await;
             }
-            Command::SetShell(_) => {
-                // Shell is set before playback starts, ignore during execution
-            }
-            Command::SetSize(_, _) => {
-                // Size is set before PTY creation, ignore during execution
+            Command::SetShell(_) | Command::SetSize(_, _) => {
+                // Shell and size are applied before playback starts, ignore during execution
             }
             Command::Type(text) => {
                 // Escape sequences must be sent atomically without delays between bytes
@@ -128,7 +130,7 @@ impl PlaybackEngine {
                     }
 
                     if bytes[i] == 0x1b {
-                        let seq_len = self.escape_sequence_length(&bytes[i..]);
+                        let seq_len = Self::escape_sequence_length(&bytes[i..]);
                         let sequence = &text[i..i + seq_len];
 
                         self.pty.send_keystroke(sequence)?;

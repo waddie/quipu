@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         .with_context(|| format!("Failed to read script file: {}", args.script.display()))?;
 
     let script =
-        parser::parse_script(&script_content).map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+        parser::parse_script(&script_content).map_err(|e| anyhow::anyhow!("Parse error: {e}"))?;
 
     // Determine shell to use (priority: CLI arg > script directive > $SHELL env > bash)
     let default_shell = args
@@ -79,8 +79,8 @@ async fn main() -> Result<()> {
 
     if !args.quiet {
         println!("Parsed {} commands", script.commands.len());
-        println!("Using shell: {}", shell);
-        println!("Terminal size: {}x{}", cols, rows);
+        println!("Using shell: {shell}");
+        println!("Terminal size: {cols}x{rows}");
         println!("Starting playback in 1 second...");
     }
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;

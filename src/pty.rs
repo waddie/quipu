@@ -57,7 +57,7 @@ type SharedWriter = Arc<Mutex<Option<Box<dyn Write + Send>>>>;
 
 pub struct PtyManager {
     writer: SharedWriter,
-    _reader_thread: Option<thread::JoinHandle<()>>,
+    reader_thread: Option<thread::JoinHandle<()>>,
     _raw_mode_guard: RawModeGuard,
 }
 
@@ -111,22 +111,16 @@ impl PtyManager {
 
             loop {
                 match stdin.read(&mut buffer) {
-                    Ok(0) => break,
+                    Ok(0) | Err(_) => break,
                     Ok(n) => {
-                        let mut guard = match stdin_writer.lock() {
-                            Ok(g) => g,
-                            Err(_) => break,
+                        let Ok(mut guard) = stdin_writer.lock() else {
+                            break;
                         };
-                        match guard.as_mut() {
-                            Some(w) => {
-                                if w.write_all(&buffer[..n]).is_err() || w.flush().is_err() {
-                                    break;
-                                }
-                            }
-                            None => break,
+                        let Some(w) = guard.as_mut() else { break };
+                        if w.write_all(&buffer[..n]).is_err() || w.flush().is_err() {
+                            break;
                         }
                     }
-                    Err(_) => break,
                 }
             }
         });
@@ -138,7 +132,7 @@ impl PtyManager {
 
             loop {
                 match reader.read(&mut buffer) {
-                    Ok(0) => break,
+                    Ok(0) | Err(_) => break,
                     Ok(n) => {
                         if stdout.write_all(&buffer[..n]).is_err() {
                             break;
@@ -147,14 +141,13 @@ impl PtyManager {
                             break;
                         }
                     }
-                    Err(_) => break,
                 }
             }
         });
 
         Ok(Self {
             writer,
-            _reader_thread: Some(reader_thread),
+            reader_thread: Some(reader_thread),
             _raw_mode_guard: raw_mode_guard,
         })
     }
@@ -188,7 +181,7 @@ impl Drop for PtyManager {
         }
 
         // Wait for reader thread to ensure all output is flushed before raw mode is disabled
-        if let Some(handle) = self._reader_thread.take() {
+        if let Some(handle) = self.reader_thread.take() {
             let _ = handle.join();
         }
 
