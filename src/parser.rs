@@ -32,7 +32,15 @@ use std::time::Duration;
 use crate::types::{Command, Script};
 
 fn parse_float(input: &str) -> IResult<&str, f64> {
-    nom::number::complete::double(input)
+    let (rest, value) = nom::number::complete::double(input)?;
+    if !value.is_finite() || value < 0.0 {
+        // Failure (not Error) so alt() aborts instead of trying other directives
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+    Ok((rest, value))
 }
 
 fn parse_speed(input: &str) -> IResult<&str, Command> {
@@ -94,71 +102,15 @@ fn parse_comment(input: &str) -> IResult<&str, ()> {
     Ok((input, ()))
 }
 
-fn parse_special_key(input: &str) -> IResult<&str, String> {
+fn parse_key_spec(input: &str) -> IResult<&str, &str> {
     let (input, _) = char('<')(input)?;
     let (input, key_spec) = take_until(">")(input)?;
     let (input, _) = char('>')(input)?;
-
-    let escape_seq = match key_spec {
-        "esc" => "\x1b".to_string(),
-        "space" => " ".to_string(),
-        "ret" | "return" | "enter" => "\r".to_string(),
-        "tab" => "\t".to_string(),
-        "backspace" | "bs" => "\x7f".to_string(),
-        "F1" => "\x1bOP".to_string(),
-        "F2" => "\x1bOQ".to_string(),
-        "F3" => "\x1bOR".to_string(),
-        "F4" => "\x1bOS".to_string(),
-        "F5" => "\x1b[15~".to_string(),
-        "F6" => "\x1b[17~".to_string(),
-        "F7" => "\x1b[18~".to_string(),
-        "F8" => "\x1b[19~".to_string(),
-        "F9" => "\x1b[20~".to_string(),
-        "F10" => "\x1b[21~".to_string(),
-        "F11" => "\x1b[23~".to_string(),
-        "F12" => "\x1b[24~".to_string(),
-        "up" => "\x1b[A".to_string(),
-        "down" => "\x1b[B".to_string(),
-        "right" => "\x1b[C".to_string(),
-        "left" => "\x1b[D".to_string(),
-        "home" => "\x1b[H".to_string(),
-        "end" => "\x1b[F".to_string(),
-        "pageup" | "pgup" => "\x1b[5~".to_string(),
-        "pagedown" | "pgdn" => "\x1b[6~".to_string(),
-        "insert" | "ins" => "\x1b[2~".to_string(),
-        "delete" | "del" => "\x1b[3~".to_string(),
-        spec if spec.contains('-') => parse_modifier_combo(spec),
-        _ => format!("<{key_spec}>"),
-    };
-
-    Ok((input, escape_seq))
+    Ok((input, key_spec))
 }
 
-fn parse_modifier_combo(spec: &str) -> String {
-    let parts: Vec<&str> = spec.split('-').collect();
-
-    if parts.len() < 2 {
-        return format!("<{spec}>");
-    }
-
-    let (modifiers, key) = parts.split_at(parts.len() - 1);
-    let key = key[0];
-
-    let mut has_ctrl = false;
-    let mut has_alt = false;
-    let mut has_shift = false;
-
-    for m in modifiers {
-        match *m {
-            "C" | "c" | "Ctrl" | "ctrl" => has_ctrl = true,
-            "A" | "a" | "Alt" | "alt" | "M" | "m" | "Meta" | "meta" => has_alt = true,
-            "S" | "s" | "Shift" | "shift" => has_shift = true,
-            _ => {}
-        }
-    }
-
-    // Resolve the base key to its escape sequence first
-    let base_key = match key {
+fn base_key_seq(key: &str) -> Option<&'static str> {
+    Some(match key {
         "esc" => "\x1b",
         "space" => " ",
         "ret" | "return" | "enter" => "\r",
@@ -186,72 +138,104 @@ fn parse_modifier_combo(spec: &str) -> String {
         "pagedown" | "pgdn" => "\x1b[6~",
         "insert" | "ins" => "\x1b[2~",
         "delete" | "del" => "\x1b[3~",
-        // Single character - leave as-is for modifier processing below
-        _ if key.len() == 1 => key,
-        _ => return format!("<{spec}>"),
-    };
-
-    // Apply modifiers to the base key
-    if has_ctrl && !has_alt && !has_shift {
-        if key.len() == 1 {
-            let ch = key.chars().next().unwrap().to_ascii_lowercase();
-            if ch.is_ascii_lowercase() {
-                // Ctrl-letter maps to ASCII 1-26
-                let code = (ch as u8) - b'a' + 1;
-                return std::char::from_u32(u32::from(code)).unwrap().to_string();
-            } else if ch == ' ' {
-                return "\x00".to_string();
-            } else if ch == '[' {
-                return "\x1b".to_string(); // Ctrl-[ maps to ESC
-            } else if ch == ']' {
-                return "\x1d".to_string();
-            } else if ch == '\\' {
-                return "\x1c".to_string();
-            }
-        } else {
-            match key {
-                "space" => return "\x00".to_string(),
-                // Special keys don't have standard Ctrl combinations
-                _ => return format!("<{spec}>"),
-            }
-        }
-    }
-
-    // Alt combinations: prepend ESC to the base key
-    if has_alt && !has_ctrl {
-        return format!("\x1b{base_key}");
-    }
-
-    // Shift: uppercase single character keys
-    if has_shift && !has_ctrl && !has_alt && key.len() == 1 {
-        return key.to_uppercase();
-    }
-
-    if has_ctrl && has_shift && !has_alt && key.len() == 1 {
-        let ch = key.chars().next().unwrap().to_ascii_uppercase();
-        if ch.is_ascii_uppercase() {
-            let code = (ch as u8) - b'A' + 1;
-            return std::char::from_u32(u32::from(code)).unwrap().to_string();
-        }
-    }
-
-    // Ctrl-Alt: ESC followed by Ctrl-key
-    if has_ctrl && has_alt {
-        if key.len() == 1 {
-            let ch = key.chars().next().unwrap().to_ascii_lowercase();
-            if ch.is_ascii_lowercase() {
-                let code = (ch as u8) - b'a' + 1;
-                return format!("\x1b{}", std::char::from_u32(u32::from(code)).unwrap());
-            }
-        } else {
-            return format!("\x1b{base_key}");
-        }
-    }
-
-    format!("<{spec}>")
+        _ => return None,
+    })
 }
 
-fn parse_type_content(input: &str) -> String {
+fn resolve_key(spec: &str) -> Result<String, String> {
+    if let Some(seq) = base_key_seq(spec) {
+        return Ok(seq.to_string());
+    }
+    if spec.contains('-') {
+        return resolve_modifier_combo(spec);
+    }
+    Err(format!(
+        "unknown key <{spec}> (escape literal angle brackets as \\< and \\>)"
+    ))
+}
+
+// Control code for Ctrl-<key>; Shift makes no difference at the byte level
+fn ctrl_code(key: &str, spec: &str) -> Result<String, String> {
+    let mut chars = key.chars();
+    if let (Some(ch), None) = (chars.next(), chars.next()) {
+        let ch = ch.to_ascii_lowercase();
+        return match ch {
+            // Ctrl-letter maps to ASCII 1-26
+            'a'..='z' => Ok(char::from(ch as u8 - b'a' + 1).to_string()),
+            ' ' => Ok("\x00".to_string()),
+            '[' => Ok("\x1b".to_string()), // Ctrl-[ maps to ESC
+            ']' => Ok("\x1d".to_string()),
+            '\\' => Ok("\x1c".to_string()),
+            _ => Err(format!("<{spec}> has no control code")),
+        };
+    }
+    if key == "space" {
+        return Ok("\x00".to_string());
+    }
+    Err(format!("<{spec}> has no control code"))
+}
+
+fn resolve_modifier_combo(spec: &str) -> Result<String, String> {
+    let parts: Vec<&str> = spec.split('-').collect();
+    let (modifiers, key) = parts.split_at(parts.len() - 1);
+    let key = key[0];
+
+    let mut has_ctrl = false;
+    let mut has_alt = false;
+    let mut has_shift = false;
+
+    for m in modifiers {
+        match *m {
+            "C" | "c" | "Ctrl" | "ctrl" => has_ctrl = true,
+            "A" | "a" | "Alt" | "alt" | "M" | "m" | "Meta" | "meta" => has_alt = true,
+            "S" | "s" | "Shift" | "shift" => has_shift = true,
+            _ => return Err(format!("unknown modifier '{m}' in <{spec}>")),
+        }
+    }
+
+    let is_single_char = key.chars().count() == 1;
+
+    if has_ctrl {
+        let code = if is_single_char || key == "space" {
+            ctrl_code(key, spec)?
+        } else if has_alt {
+            // Ctrl-Alt-<special>: fall back to Alt behaviour
+            base_key_seq(key)
+                .ok_or_else(|| format!("unknown key '{key}' in <{spec}>"))?
+                .to_string()
+        } else {
+            return Err(format!("<{spec}> has no control code"));
+        };
+        // Alt prepends ESC
+        return Ok(if has_alt { format!("\x1b{code}") } else { code });
+    }
+
+    if has_alt {
+        let base = if let Some(seq) = base_key_seq(key) {
+            seq.to_string()
+        } else if is_single_char {
+            if has_shift {
+                key.to_uppercase()
+            } else {
+                key.to_string()
+            }
+        } else {
+            return Err(format!("unknown key '{key}' in <{spec}>"));
+        };
+        return Ok(format!("\x1b{base}"));
+    }
+
+    // Shift only
+    if key == "tab" {
+        return Ok("\x1b[Z".to_string()); // Backtab
+    }
+    if is_single_char {
+        return Ok(key.to_uppercase());
+    }
+    Err(format!("<{spec}> has no standard escape sequence"))
+}
+
+fn parse_type_content(input: &str) -> Result<String, String> {
     let mut result = String::new();
     let mut remaining = input;
 
@@ -260,29 +244,31 @@ fn parse_type_content(input: &str) -> String {
             result.push_str(&remaining[1..2]);
             remaining = &remaining[2..];
         } else if remaining.starts_with('<') {
-            if let Ok((rest, key_seq)) = parse_special_key(remaining) {
-                result.push_str(&key_seq);
+            if let Ok((rest, spec)) = parse_key_spec(remaining) {
+                result.push_str(&resolve_key(spec)?);
                 remaining = rest;
             } else {
+                // No closing '>' on the line: literal '<' (e.g. shell redirection)
                 result.push('<');
                 remaining = &remaining[1..];
             }
         } else {
-            result.push(remaining.chars().next().unwrap());
-            remaining = &remaining[remaining.chars().next().unwrap().len_utf8()..];
+            let c = remaining.chars().next().unwrap();
+            result.push(c);
+            remaining = &remaining[c.len_utf8()..];
         }
     }
 
-    result
+    Ok(result)
 }
 
+// Returns the raw text; special keys are expanded in parse_script so
+// unknown key specs can be reported with a line number
 fn parse_type(input: &str) -> IResult<&str, Command> {
     let (input, _) = char('$')(input)?;
     let (input, _) = space0(input)?;
     let (input, text) = not_line_ending(input)?;
-
-    let processed_text = parse_type_content(text);
-    Ok((input, Command::Type(processed_text)))
+    Ok((input, Command::Type(text.to_string())))
 }
 
 fn parse_line(input: &str) -> IResult<&str, Option<Command>> {
@@ -313,9 +299,23 @@ pub fn parse_script(input: &str) -> Result<Script, String> {
                         remaining
                     ));
                 }
+                let cmd = match cmd {
+                    Command::Type(raw) => Command::Type(
+                        parse_type_content(&raw)
+                            .map_err(|e| format!("Line {}: {e}", line_num + 1))?,
+                    ),
+                    other => other,
+                };
                 commands.push(cmd);
             }
             Ok((_, None)) => {}
+            Err(nom::Err::Failure(e)) if e.code == nom::error::ErrorKind::Verify => {
+                return Err(format!(
+                    "Line {}: invalid directive value '{}': must be a non-negative number",
+                    line_num + 1,
+                    e.input
+                ));
+            }
             Err(e) => {
                 return Err(format!("Line {}: Parse error: {}", line_num + 1, e));
             }
@@ -376,41 +376,61 @@ mod tests {
 
     #[test]
     fn test_parse_type_with_special_keys() {
-        let input = "$ echo hello<ret>";
-        let result = parse_type(input);
-        assert!(result.is_ok());
-        let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "echo hello\r");
-        } else {
-            panic!("Expected Type command");
-        }
+        assert_eq!(
+            parse_type_content("echo hello<ret>"),
+            Ok("echo hello\r".to_string())
+        );
     }
 
     #[test]
     fn test_parse_type_with_ctrl() {
-        let input = "$ <C-c>";
-        let result = parse_type(input);
-        assert!(result.is_ok());
-        let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "\x03"); // Ctrl-C
-        } else {
-            panic!("Expected Type command");
-        }
+        assert_eq!(parse_type_content("<C-c>"), Ok("\x03".to_string()));
     }
 
     #[test]
     fn test_parse_type_with_escaped() {
-        let input = r"$ \<not a key\>";
-        let result = parse_type(input);
+        assert_eq!(
+            parse_type_content(r"\<not a key\>"),
+            Ok("<not a key>".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_type_unclosed_bracket_is_literal() {
+        // Shell redirection with no '>' on the line stays literal
+        assert_eq!(
+            parse_type_content("cat < input.txt"),
+            Ok("cat < input.txt".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_type_unknown_key_is_error() {
+        assert!(parse_type_content("<Ret>").is_err());
+        assert!(parse_type_content("<D-x>").is_err());
+        assert!(parse_type_content("cat <file >out").is_err());
+    }
+
+    #[test]
+    fn test_parse_shift_tab() {
+        assert_eq!(parse_type_content("<S-tab>"), Ok("\x1b[Z".to_string()));
+    }
+
+    #[test]
+    fn test_parse_size() {
+        let input = "@ size:120:40";
+        let result = parse_size(input);
         assert!(result.is_ok());
         let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "<not a key>");
-        } else {
-            panic!("Expected Type command");
-        }
+        assert_eq!(cmd, Command::SetSize(120, 40));
+    }
+
+    #[test]
+    fn test_negative_directive_values_are_errors() {
+        let err = parse_script("@ wait:-1").unwrap_err();
+        assert!(err.contains("Line 1"), "unexpected error: {err}");
+        assert!(parse_script("@ speed:-0.1").is_err());
+        assert!(parse_script("@ jitter:-0.5").is_err());
     }
 
     #[test]
@@ -433,40 +453,32 @@ $ ls -la
 
     #[test]
     fn test_parse_alt_with_special_keys() {
-        // Test Alt-Enter
-        let input = "$ <A-ret>";
-        let result = parse_type(input);
-        assert!(result.is_ok());
-        let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "\x1b\r"); // ESC + carriage return
-        } else {
-            panic!("Expected Type command");
-        }
-
-        // Test Alt-space
-        let input = "$ <A-space>";
-        let result = parse_type(input);
-        assert!(result.is_ok());
-        let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "\x1b "); // ESC + space
-        } else {
-            panic!("Expected Type command");
-        }
+        // ESC + carriage return
+        assert_eq!(parse_type_content("<A-ret>"), Ok("\x1b\r".to_string()));
+        // ESC + space
+        assert_eq!(parse_type_content("<A-space>"), Ok("\x1b ".to_string()));
     }
 
     #[test]
     fn test_parse_ctrl_with_special_keys() {
-        // Test Ctrl-space
-        let input = "$ <C-space>";
-        let result = parse_type(input);
-        assert!(result.is_ok());
-        let (_, cmd) = result.unwrap();
-        if let Command::Type(text) = cmd {
-            assert_eq!(text, "\x00"); // Ctrl-space
-        } else {
-            panic!("Expected Type command");
+        assert_eq!(parse_type_content("<C-space>"), Ok("\x00".to_string()));
+        assert_eq!(parse_type_content("<C-S-x>"), Ok("\x18".to_string()));
+        assert_eq!(parse_type_content("<C-A-c>"), Ok("\x1b\x03".to_string()));
+    }
+
+    #[test]
+    fn test_example_scripts_parse() {
+        let examples = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("examples");
+        for entry in std::fs::read_dir(examples).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_some_and(|e| e == "qp") {
+                let content = std::fs::read_to_string(&path).unwrap();
+                assert!(
+                    parse_script(&content).is_ok(),
+                    "failed to parse {}",
+                    path.display()
+                );
+            }
         }
     }
 }

@@ -21,7 +21,10 @@ use anyhow::{Context, Result};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{IsTerminal, Read, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 use std::thread;
 use std::time::Duration;
 
@@ -62,7 +65,7 @@ pub struct PtyManager {
 }
 
 impl PtyManager {
-    pub fn new(shell: &str, cols: u16, rows: u16) -> Result<Self> {
+    pub fn new(shell: &str, cols: u16, rows: u16, running: Arc<AtomicBool>) -> Result<Self> {
         // Enable raw mode before PTY creation for proper escape sequence handling
         let raw_mode_guard = RawModeGuard::new()?;
 
@@ -113,6 +116,12 @@ impl PtyManager {
                 match stdin.read(&mut buffer) {
                     Ok(0) | Err(_) => break,
                     Ok(n) => {
+                        // Raw mode disables ISIG, so Ctrl-C arrives here as a
+                        // byte instead of raising SIGINT. Stop playback and
+                        // still forward it so the inner program is interrupted.
+                        if buffer[..n].contains(&0x03) {
+                            running.store(false, Ordering::SeqCst);
+                        }
                         let Ok(mut guard) = stdin_writer.lock() else {
                             break;
                         };

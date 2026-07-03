@@ -21,6 +21,10 @@ mod types;
 use anyhow::{Context, Result};
 use clap::Parser as ClapParser;
 use std::path::PathBuf;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 #[derive(ClapParser, Debug)]
 #[command(name = "quipu")]
@@ -50,6 +54,7 @@ async fn main() -> Result<()> {
         parser::parse_script(&script_content).map_err(|e| anyhow::anyhow!("Parse error: {e}"))?;
 
     // Determine shell to use (priority: CLI arg > script directive > $SHELL env > bash)
+    let cli_shell = args.shell.is_some();
     let default_shell = args
         .shell
         .or_else(|| std::env::var("SHELL").ok())
@@ -63,7 +68,9 @@ async fn main() -> Result<()> {
     for command in &script.commands {
         match command {
             types::Command::SetShell(s) => {
-                shell = s.clone();
+                if !cli_shell {
+                    shell = s.clone();
+                }
             }
             types::Command::SetSize(c, r) => {
                 cols = *c;
@@ -85,10 +92,13 @@ async fn main() -> Result<()> {
     }
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
-    let pty = pty::PtyManager::new(&shell, cols, rows).context("Failed to create PTY")?;
+    let running = Arc::new(AtomicBool::new(true));
 
-    let mut engine =
-        playback::PlaybackEngine::new(pty).context("Failed to create playback engine")?;
+    let pty = pty::PtyManager::new(&shell, cols, rows, running.clone())
+        .context("Failed to create PTY")?;
+
+    let mut engine = playback::PlaybackEngine::new(pty, running.clone())
+        .context("Failed to create playback engine")?;
 
     engine
         .execute(script)
@@ -100,7 +110,11 @@ async fn main() -> Result<()> {
     drop(engine);
 
     if !args.quiet {
-        println!("\nPlayback complete!");
+        if running.load(Ordering::SeqCst) {
+            println!("\nPlayback complete!");
+        } else {
+            println!("\nPlayback interrupted");
+        }
     }
 
     // Brief pause so user can see the result

@@ -36,9 +36,9 @@ pub struct PlaybackEngine {
 }
 
 impl PlaybackEngine {
-    pub fn new(pty: PtyManager) -> Result<Self> {
-        let running = Arc::new(AtomicBool::new(true));
-
+    pub fn new(pty: PtyManager, running: Arc<AtomicBool>) -> Result<Self> {
+        // In raw mode Ctrl-C never raises SIGINT (the PTY stdin forwarder
+        // handles it instead); this covers non-TTY runs and external signals
         let r = running.clone();
         ctrlc::set_handler(move || {
             eprintln!("\nReceived Ctrl-C, stopping playback...");
@@ -75,12 +75,10 @@ impl PlaybackEngine {
         }
     }
 
+    // The returned length is used to slice the UTF-8 text by byte offset, so it
+    // must never claim a partial multibyte character
     fn escape_sequence_length(bytes: &[u8]) -> usize {
-        if bytes.is_empty() || bytes[0] != 0x1b {
-            return 1;
-        }
-
-        if bytes.len() == 1 {
+        if bytes.len() < 2 || bytes[0] != 0x1b {
             return 1;
         }
 
@@ -91,17 +89,24 @@ impl PlaybackEngine {
                 while i < bytes.len() && (bytes[i].is_ascii_digit() || bytes[i] == b';') {
                     i += 1;
                 }
-                if i < bytes.len() { i + 1 } else { bytes.len() }
+                if i < bytes.len() && bytes[i].is_ascii() {
+                    i + 1
+                } else {
+                    i
+                }
             }
             // SS3 sequences: ESC O + letter
             b'O' => {
-                if bytes.len() > 2 {
+                if bytes.len() > 2 && bytes[2].is_ascii() {
                     3
                 } else {
-                    bytes.len()
+                    2
                 }
             }
-            _ => 2,
+            // Alt-prefixed key: ESC + one ASCII char
+            b if b.is_ascii() => 2,
+            // ESC followed by a multibyte char: send ESC alone
+            _ => 1,
         }
     }
 
@@ -161,5 +166,41 @@ impl PlaybackEngine {
             self.execute_command(&command).await?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_sequence_lengths() {
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"\x1b[A"), 3);
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"\x1b[15~"), 5);
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"\x1bOP"), 3);
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"\x1bx"), 2);
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"\x1b"), 1);
+        assert_eq!(PlaybackEngine::escape_sequence_length(b"a"), 1);
+    }
+
+    #[test]
+    fn test_escape_sequence_length_stays_on_char_boundary() {
+        // ESC directly followed by a multibyte char
+        let text = "\x1b\u{e9}";
+        let len = PlaybackEngine::escape_sequence_length(text.as_bytes());
+        assert_eq!(len, 1);
+        let _ = &text[..len]; // must not panic
+
+        // CSI params followed by a multibyte char
+        let text = "\x1b[1\u{e9}";
+        let len = PlaybackEngine::escape_sequence_length(text.as_bytes());
+        assert_eq!(len, 3);
+        let _ = &text[..len];
+
+        // ESC O followed by a multibyte char
+        let text = "\x1bO\u{e9}";
+        let len = PlaybackEngine::escape_sequence_length(text.as_bytes());
+        assert_eq!(len, 2);
+        let _ = &text[..len];
     }
 }

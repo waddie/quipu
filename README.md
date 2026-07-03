@@ -51,6 +51,8 @@ Run the script:
 quipu script.qp
 ```
 
+Pass `-q`/`--quiet` to suppress the informational status messages.
+
 By default, quipu uses your current shell (`$SHELL`). To use a different shell:
 
 ```sh
@@ -77,7 +79,10 @@ asciinema rec demo.cast -c "quipu script.qp"
 - `@ speed:N` - Set time between keystrokes in seconds (default: 0.1)
 - `@ jitter:N` - Set random variation as fraction of speed (default: 0.0)
 - `@ wait:N` - Pause for N seconds before continuing
-- `@ shell:PATH` - Set shell to use (defaults to `$SHELL`, must come before any typing commands)
+- `@ shell:PATH` - Set shell to use (defaults to `$SHELL`, must come before any typing commands; a `--shell` CLI argument takes priority)
+- `@ size:COLS:ROWS` - Set terminal size (default: 80x24, must come before any typing commands)
+
+Directive values must be non-negative numbers.
 
 ### Comments (# lines)
 
@@ -125,6 +130,7 @@ Use modifier prefixes with a dash:
 - `<A-x>` or `<Alt-x>` - Alt+X
 - `<S-x>` or `<Shift-x>` - Shift+X
 - `<C-S-x>` - Ctrl+Shift+X
+- `<S-tab>` - Backtab
 
 Examples:
 
@@ -142,6 +148,10 @@ Use backslash to escape angle brackets:
 ```
 $ echo "Literal \<angle\> brackets"
 ```
+
+An unrecognized `<...>` sequence is a parse error, so unescaped angle bracket
+pairs must be escaped. A lone `<` with no `>` later on the line (e.g. shell
+redirection `cat < file`) is typed literally.
 
 ## License
 
