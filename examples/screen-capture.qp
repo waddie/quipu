@@ -1,0 +1,21 @@
+@ size:80:24
+@ speed:0.08
+@ jitter:0.02
+
+# Screen Capture Demo
+# This demonstrates the @ capture directive, which writes the current
+# terminal state to a file as escape codes. `cat` the file afterwards to
+# repaint the exact state captured here.
+
+# Run a command that produces some output
+$ echo "hello from quipu"<ret>
+
+# Let the output settle before capturing. Captures reflect on-screen state at
+# that instant, so pair them with @ wait to let command output arrive.
+@ wait:0.5
+@ capture:/tmp/quipu-screenshot.txt
+
+# Draw something more visual, then capture again
+$ printf '\033[31mred\033[0m \033[32mgreen\033[0m \033[34mblue\033[0m\n'<ret>
+@ wait:0.5
+@ capture:/tmp/quipu-colours.txt

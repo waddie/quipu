@@ -90,12 +90,17 @@ async fn main() -> Result<()> {
         println!("Terminal size: {cols}x{rows}");
         println!("Starting playback in 1 second...");
     }
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
     let running = Arc::new(AtomicBool::new(true));
 
     let pty = pty::PtyManager::new(&shell, cols, rows, running.clone())
         .context("Failed to create PTY")?;
+
+    // Give the freshly spawned shell time to print its prompt and put its line
+    // editor into raw mode before playback types anything. Without this settle,
+    // the first keystroke races shell startup and is echoed by the PTY's
+    // canonical line discipline at column 0, stranding a stray character before
+    // the prompt.
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     let mut engine = playback::PlaybackEngine::new(pty, running.clone())
         .context("Failed to create playback engine")?;

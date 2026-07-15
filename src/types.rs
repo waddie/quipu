@@ -15,6 +15,7 @@
 
 //! Core types for quipu script execution
 
+use std::path::PathBuf;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,6 +28,8 @@ pub enum Command {
     // Must come before PTY creation
     SetSize(u16, u16),
     Type(String),
+    // Snapshot the current screen (escape codes) to a file
+    Capture(PathBuf),
 }
 
 #[derive(Debug, Clone)]

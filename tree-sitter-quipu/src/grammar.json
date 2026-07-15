@@ -84,6 +84,10 @@
             {
               "type": "SYMBOL",
               "name": "size_directive"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "capture_directive"
             }
           ]
         },
@@ -171,6 +175,19 @@
         {
           "type": "SYMBOL",
           "name": "integer"
+        }
+      ]
+    },
+    "capture_directive": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "capture:"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "capture_path"
         }
       ]
     },
@@ -594,6 +611,10 @@
       "value": "[0-9]+"
     },
     "shell_path": {
+      "type": "PATTERN",
+      "value": "[^\\n#]+"
+    },
+    "capture_path": {
       "type": "PATTERN",
       "value": "[^\\n#]+"
     }

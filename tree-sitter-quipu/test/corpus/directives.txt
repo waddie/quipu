@@ -65,6 +65,32 @@ Size directive
       (integer))))
 
 ==================
+Capture directive
+==================
+
+@ capture:out.txt
+
+---
+
+(source_file
+  (directive
+    (capture_directive
+      (capture_path))))
+
+==================
+Capture directive with absolute path
+==================
+
+@ capture:/tmp/quipu-screenshot.txt
+
+---
+
+(source_file
+  (directive
+    (capture_directive
+      (capture_path))))
+
+==================
 Multiple directives
 ==================
 

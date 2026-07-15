@@ -124,6 +124,9 @@ impl PlaybackEngine {
             Command::SetShell(_) | Command::SetSize(_, _) => {
                 // Shell and size are applied before playback starts, ignore during execution
             }
+            Command::Capture(path) => {
+                self.pty.capture(path)?;
+            }
             Command::Type(text) => {
                 // Escape sequences must be sent atomically without delays between bytes
                 let mut i = 0;

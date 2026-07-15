@@ -1,53 +1,80 @@
 ; Directives
 ;-----------
 
-"@" @keyword.directive
+"@"
+@keyword.directive
 
 (speed_directive
-  "speed:" @keyword.directive
-  (float) @constant.numeric.float)
+  "speed:"
+  @keyword.directive
+  (float)
+  @constant.numeric.float)
 
 (jitter_directive
-  "jitter:" @keyword.directive
-  (float) @constant.numeric.float)
+  "jitter:"
+  @keyword.directive
+  (float)
+  @constant.numeric.float)
 
 (wait_directive
-  "wait:" @keyword.directive
-  (float) @constant.numeric.float)
+  "wait:"
+  @keyword.directive
+  (float)
+  @constant.numeric.float)
 
 (shell_directive
-  "shell:" @keyword.directive
-  (shell_path) @string.special.path)
+  "shell:"
+  @keyword.directive
+  (shell_path)
+  @string.special.path)
 
 (size_directive
-  "size:" @keyword.directive
-  (integer) @constant.numeric.integer
-  (integer) @constant.numeric.integer)
+  "size:"
+  @keyword.directive
+  (integer)
+  @constant.numeric.integer
+  (integer)
+  @constant.numeric.integer)
+
+(capture_directive
+  "capture:"
+  @keyword.directive
+  (capture_path)
+  @string.special.path)
 
 ; Comments
 ;---------
 
-(comment) @comment
-(comment_text) @comment
-(inline_comment) @comment
+(comment)
+@comment
+(comment_text)
+@comment
+(inline_comment)
+@comment
 
-"#" @punctuation.special
+"#"
+@punctuation.special
 
 ; Type commands
 ;-------------
 
-"$" @keyword.directive
+"$"
+@keyword.directive
 
-(text) @string
+(text)
+@string
 
 ; Special keys
 ;-------------
 
 (special_key
-  "<" @punctuation.bracket
-  ">" @punctuation.bracket)
+  "<"
+  @punctuation.bracket
+  ">"
+  @punctuation.bracket)
 
-(key_spec) @constant.builtin
+(key_spec)
+@constant.builtin
 
 ; Named keys
 [
@@ -72,25 +99,30 @@
   "insert"
   "ins"
   "delete"
-  "del"
-] @constant.builtin.boolean
+  "del"]
+@constant.builtin.boolean
 
 ; Function keys
 (key_spec
-  (modifier_combo) @keyword.operator)
+  (modifier_combo)
+  @keyword.operator)
 
 ; Escaped brackets
 ;----------------
 
-(escaped_bracket) @constant.character.escape
+(escaped_bracket)
+@constant.character.escape
 
 ; Operators
 ;----------
 
-":" @operator
+":"
+@operator
 
 ; Numbers
 ;--------
 
-(float) @constant.numeric.float
-(integer) @constant.numeric.integer
+(float)
+@constant.numeric.float
+(integer)
+@constant.numeric.integer

@@ -1,5 +1,25 @@
 [
   {
+    "type": "capture_directive",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "capture_path",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "capture_path",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "comment",
     "named": true,
     "fields": {},
@@ -22,6 +42,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "capture_directive",
+          "named": true
+        },
         {
           "type": "inline_comment",
           "named": true
@@ -113,6 +137,11 @@
         }
       ]
     }
+  },
+  {
+    "type": "shell_path",
+    "named": true,
+    "fields": {}
   },
   {
     "type": "size_directive",
@@ -273,6 +302,10 @@
     "named": false
   },
   {
+    "type": "capture:",
+    "named": false
+  },
+  {
     "type": "comment_text",
     "named": true
   },
@@ -363,10 +396,6 @@
   {
     "type": "shell:",
     "named": false
-  },
-  {
-    "type": "shell_path",
-    "named": true
   },
   {
     "type": "size:",

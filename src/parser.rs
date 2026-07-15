@@ -85,6 +85,14 @@ fn parse_size(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetSize(cols, rows)))
 }
 
+fn parse_capture(input: &str) -> IResult<&str, Command> {
+    let (input, _) = tag("@")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = tag("capture:")(input)?;
+    let (input, path) = not_line_ending(input)?;
+    Ok((input, Command::Capture(path.trim().into())))
+}
+
 fn parse_directive(input: &str) -> IResult<&str, Command> {
     alt((
         parse_speed,
@@ -92,6 +100,7 @@ fn parse_directive(input: &str) -> IResult<&str, Command> {
         parse_wait,
         parse_shell,
         parse_size,
+        parse_capture,
     ))
     .parse(input)
 }
@@ -414,6 +423,15 @@ mod tests {
     #[test]
     fn test_parse_shift_tab() {
         assert_eq!(parse_type_content("<S-tab>"), Ok("\x1b[Z".to_string()));
+    }
+
+    #[test]
+    fn test_parse_capture() {
+        let input = "@ capture:out.txt";
+        let result = parse_capture(input);
+        assert!(result.is_ok());
+        let (_, cmd) = result.unwrap();
+        assert_eq!(cmd, Command::Capture("out.txt".into()));
     }
 
     #[test]

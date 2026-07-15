@@ -21,6 +21,7 @@ use anyhow::{Context, Result};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use std::io::{IsTerminal, Read, Write};
+use std::path::Path;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -58,8 +59,14 @@ impl Drop for RawModeGuard {
 // the writer to signal EOF even though the forwarding thread holds an Arc clone.
 type SharedWriter = Arc<Mutex<Option<Box<dyn Write + Send>>>>;
 
+// Shared VT parser fed by the reader thread as PTY output flows through. It
+// mirrors the visible screen so a capture directive can serialise the current
+// state to escape codes.
+type SharedParser = Arc<Mutex<vt100::Parser>>;
+
 pub struct PtyManager {
     writer: SharedWriter,
+    parser: SharedParser,
     reader_thread: Option<thread::JoinHandle<()>>,
     _raw_mode_guard: RawModeGuard,
 }
@@ -134,6 +141,11 @@ impl PtyManager {
             }
         });
 
+        // Mirror the visible screen at the PTY's dimensions; no scrollback, as a
+        // capture only serialises the visible grid.
+        let parser: SharedParser = Arc::new(Mutex::new(vt100::Parser::new(rows, cols, 0)));
+        let reader_parser = parser.clone();
+
         let reader_thread = thread::spawn(move || {
             let mut reader = reader;
             let mut stdout = std::io::stdout();
@@ -143,11 +155,16 @@ impl PtyManager {
                 match reader.read(&mut buffer) {
                     Ok(0) | Err(_) => break,
                     Ok(n) => {
+                        // stdout is the primary path: never let a locked or
+                        // poisoned parser block live output.
                         if stdout.write_all(&buffer[..n]).is_err() {
                             break;
                         }
                         if stdout.flush().is_err() {
                             break;
+                        }
+                        if let Ok(mut parser) = reader_parser.lock() {
+                            parser.process(&buffer[..n]);
                         }
                     }
                 }
@@ -156,6 +173,7 @@ impl PtyManager {
 
         Ok(Self {
             writer,
+            parser,
             reader_thread: Some(reader_thread),
             _raw_mode_guard: raw_mode_guard,
         })
@@ -178,6 +196,22 @@ impl PtyManager {
         let mut buf = [0u8; 4];
         let s = c.encode_utf8(&mut buf);
         self.send_keystroke(s)
+    }
+
+    // Serialise the current screen to a file as terminal escape codes. The
+    // resulting file, when written to a raw terminal (e.g. `cat`), reproduces
+    // the visible state at this point in playback.
+    pub fn capture(&self, path: &Path) -> Result<()> {
+        let contents = {
+            let parser = self
+                .parser
+                .lock()
+                .map_err(|_| anyhow::anyhow!("PTY parser lock poisoned"))?;
+            parser.screen().contents_formatted()
+        };
+        std::fs::write(path, contents)
+            .with_context(|| format!("Failed to write capture to {}", path.display()))?;
+        Ok(())
     }
 }
 
