@@ -81,6 +81,7 @@ asciinema rec demo.cast -c "quipu script.qp"
 - `@ wait:N` - Pause for N seconds before continuing
 - `@ shell:PATH` - Set shell to use (defaults to `$SHELL`, must come before any typing commands; a `--shell` CLI argument takes priority)
 - `@ size:COLS:ROWS` - Set terminal size (default: 80x24, must come before any typing commands)
+- `@ capture:PATH` - Capture the current screen to `PATH`, including escape codes. Consider a preceding `wait` to allow the screen to settle.
 
 Directive values must be non-negative numbers.
 
