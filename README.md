@@ -51,7 +51,10 @@ Run the script:
 quipu script.qp
 ```
 
-Pass `-q`/`--quiet` to suppress the informational status messages.
+Pass `-q`/`--quiet` to suppress the informational status messages. Pass
+`-V`/`--version` to print the version and exit.
+
+Repeating an option is allowed; the last occurrence wins.
 
 By default, quipu uses your current shell (`$SHELL`). To use a different shell:
 

@@ -27,8 +27,14 @@ use std::sync::{
 };
 
 #[derive(ClapParser, Debug)]
-#[command(name = "quipu")]
-#[command(about = "Script keyboard entry in the terminal", long_about = None)]
+#[command(
+    name = "quipu",
+    version = concat!("v", env!("CARGO_PKG_VERSION")),
+    // Repeating an option overrides the earlier occurrence rather than erroring.
+    args_override_self = true,
+    about = "Script keyboard entry in the terminal",
+    long_about = None
+)]
 struct Args {
     /// The script file to execute
     #[arg(value_name = "SCRIPT")]
@@ -126,4 +132,61 @@ async fn main() -> Result<()> {
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use clap::CommandFactory;
+    use clap::error::ErrorKind;
+
+    fn parse_err(args: &[&str]) -> clap::Error {
+        Args::try_parse_from(args).expect_err("expected a parse error")
+    }
+
+    #[test]
+    fn test_cli_definition_is_valid() {
+        Args::command().debug_assert();
+    }
+
+    #[test]
+    fn test_version_flag() {
+        let expected = concat!("v", env!("CARGO_PKG_VERSION"));
+        for arg in ["--version", "-V"] {
+            let err = parse_err(&["quipu", arg]);
+            assert_eq!(err.kind(), ErrorKind::DisplayVersion);
+            assert!(err.to_string().contains(expected), "{arg}: {err}");
+        }
+        // `-v` stays free for a future --verbose.
+        assert_eq!(
+            parse_err(&["quipu", "-v"]).kind(),
+            ErrorKind::UnknownArgument
+        );
+    }
+
+    #[test]
+    fn test_repeated_options_take_the_last() {
+        let args = Args::try_parse_from([
+            "quipu",
+            "--shell",
+            "/bin/bash",
+            "--shell",
+            "/bin/zsh",
+            "s.qp",
+        ])
+        .unwrap();
+        assert_eq!(args.shell.as_deref(), Some("/bin/zsh"));
+
+        let args = Args::try_parse_from(["quipu", "-q", "--quiet", "s.qp"]).unwrap();
+        assert!(args.quiet);
+    }
+
+    #[test]
+    fn test_script_is_required() {
+        assert_eq!(
+            parse_err(&["quipu"]).kind(),
+            ErrorKind::MissingRequiredArgument
+        );
+    }
 }
