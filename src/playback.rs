@@ -23,7 +23,7 @@ use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
 use crate::pty::PtyManager;
@@ -127,6 +127,15 @@ impl PlaybackEngine {
             Command::Capture(path) => {
                 self.pty.capture(path)?;
             }
+            Command::CaptureText(path) => {
+                self.pty.capture_text(path)?;
+            }
+            Command::SetTimeout(timeout) => {
+                self.config.timeout = *timeout;
+            }
+            Command::Expect(text) => {
+                self.expect(text).await?;
+            }
             Command::Type(text) => {
                 // Escape sequences must be sent atomically without delays between bytes
                 let mut i = 0;
@@ -158,6 +167,25 @@ impl PlaybackEngine {
             }
         }
         Ok(())
+    }
+
+    // Poll the screen until it shows `text`, failing with the screen once the
+    // timeout passes
+    async fn expect(&self, text: &str) -> Result<()> {
+        let deadline = Instant::now() + self.config.timeout;
+        loop {
+            let screen = self.pty.screen_text()?;
+            if screen.contains(text) || !self.should_continue() {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                anyhow::bail!(
+                    "expected {text:?} within {:?}, but the screen shows:\n{screen}",
+                    self.config.timeout
+                );
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
     }
 
     pub async fn execute(&mut self, script: Script) -> Result<()> {

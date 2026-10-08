@@ -30,6 +30,12 @@ pub enum Command {
     Type(String),
     // Snapshot the current screen (escape codes) to a file
     Capture(PathBuf),
+    // Snapshot the current screen as plain text to a file
+    CaptureText(PathBuf),
+    // How long an Expect waits before failing
+    SetTimeout(Duration),
+    // Wait until the screen shows this text, failing after the timeout
+    Expect(String),
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +44,8 @@ pub struct PlaybackConfig {
     pub speed: f64,
     // Jitter as a fraction (0.0 to 1.0) of speed
     pub jitter: f64,
+    // How long an expect waits for its text
+    pub timeout: Duration,
 }
 
 impl Default for PlaybackConfig {
@@ -45,6 +53,7 @@ impl Default for PlaybackConfig {
         Self {
             speed: 0.1,  // 100ms per keystroke
             jitter: 0.0, // No jitter
+            timeout: Duration::from_secs(10),
         }
     }
 }

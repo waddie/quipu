@@ -84,9 +84,26 @@ asciinema rec demo.cast -c "quipu script.qp"
 - `@ wait:N` - Pause for N seconds before continuing
 - `@ shell:PATH` - Set shell to use (defaults to `$SHELL`, must come before any typing commands; a `--shell` CLI argument takes priority)
 - `@ size:COLS:ROWS` - Set terminal size (default: 80x24, must come before any typing commands)
-- `@ capture:PATH` - Capture the current screen to `PATH`, including escape codes. Consider a preceding `wait` to allow the screen to settle.
+- `@ capture:PATH` - Capture the current screen to `PATH`, including escape codes. Consider a preceding `wait` or `expect` to allow the screen to settle.
+- `@ capture-text:PATH` - Capture the current screen to `PATH` as plain text
+- `@ expect:TEXT` - Wait until a line of the screen contains `TEXT` (everything after the colon, `#` included, with surrounding spaces trimmed). If it doesn't appear within the timeout, quipu stops, prints the screen, and exits with status 1.
+- `@ timeout:N` - Set how long `expect` waits, in seconds (default: 10)
 
-Directive values must be non-negative numbers.
+Numeric directive values must be non-negative.
+
+### Scripts as tests
+
+`expect` waits only as long as it has to, so a script can drive a terminal
+program and check what it shows without guessing at `wait` times. A failed
+`expect` makes quipu exit with status 1, which is all a test runner needs:
+
+```quipu
+@ speed:0.01
+@ timeout:5
+$ hx example.clj<ret>
+@ expect:NOR
+$ :quit<ret>
+```
 
 ### Comments (# lines)
 

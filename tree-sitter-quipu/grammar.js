@@ -30,6 +30,9 @@ module.exports = grammar({
           $.shell_directive,
           $.size_directive,
           $.capture_directive,
+          $.capture_text_directive,
+          $.timeout_directive,
+          $.expect_directive,
         ),
         optional($.inline_comment),
       ),
@@ -45,6 +48,13 @@ module.exports = grammar({
     size_directive: ($) => seq("size:", $.integer, ":", $.integer),
 
     capture_directive: ($) => seq("capture:", $.capture_path),
+
+    capture_text_directive: ($) => seq("capture-text:", $.capture_path),
+
+    timeout_directive: ($) => seq("timeout:", $.float),
+
+    // The text runs to the end of the line, '#' included
+    expect_directive: ($) => seq("expect:", $.expect_text),
 
     // Comments start with #
     comment: ($) => seq("#", optional($.comment_text)),
@@ -159,5 +169,7 @@ module.exports = grammar({
     shell_path: ($) => /[^\n#]+/,
 
     capture_path: ($) => /[^\n#]+/,
+
+    expect_text: ($) => /[^\n]+/,
   },
 });

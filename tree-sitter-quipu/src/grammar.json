@@ -88,6 +88,18 @@
             {
               "type": "SYMBOL",
               "name": "capture_directive"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "capture_text_directive"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "timeout_directive"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "expect_directive"
             }
           ]
         },
@@ -188,6 +200,45 @@
         {
           "type": "SYMBOL",
           "name": "capture_path"
+        }
+      ]
+    },
+    "capture_text_directive": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "capture-text:"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "capture_path"
+        }
+      ]
+    },
+    "timeout_directive": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "timeout:"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "float"
+        }
+      ]
+    },
+    "expect_directive": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "expect:"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "expect_text"
         }
       ]
     },
@@ -617,6 +668,10 @@
     "capture_path": {
       "type": "PATTERN",
       "value": "[^\\n#]+"
+    },
+    "expect_text": {
+      "type": "PATTERN",
+      "value": "[^\\n]+"
     }
   },
   "extras": [],

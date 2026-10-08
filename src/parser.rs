@@ -16,7 +16,7 @@
 //! Script parser for quipu files
 //!
 //! Parses scripts with the format:
-//! - @ directives (speed, jitter, wait)
+//! - @ directives (speed, jitter, wait, expect, ...)
 //! - # comments
 //! - $ typing lines
 
@@ -85,6 +85,32 @@ fn parse_size(input: &str) -> IResult<&str, Command> {
     Ok((input, Command::SetSize(cols, rows)))
 }
 
+fn parse_timeout(input: &str) -> IResult<&str, Command> {
+    let (input, _) = tag("@")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = tag("timeout:")(input)?;
+    let (input, value) = parse_float(input)?;
+    Ok((input, Command::SetTimeout(Duration::from_secs_f64(value))))
+}
+
+// The text runs to the end of the line, so it may contain '#'
+fn parse_expect(input: &str) -> IResult<&str, Command> {
+    let (input, _) = tag("@")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = tag("expect:")(input)?;
+    let (input, text) = not_line_ending(input)?;
+    Ok((input, Command::Expect(text.trim().to_string())))
+}
+
+// Must be tried before parse_capture, which would stop at "capture"
+fn parse_capture_text(input: &str) -> IResult<&str, Command> {
+    let (input, _) = tag("@")(input)?;
+    let (input, _) = space0(input)?;
+    let (input, _) = tag("capture-text:")(input)?;
+    let (input, path) = not_line_ending(input)?;
+    Ok((input, Command::CaptureText(path.trim().into())))
+}
+
 fn parse_capture(input: &str) -> IResult<&str, Command> {
     let (input, _) = tag("@")(input)?;
     let (input, _) = space0(input)?;
@@ -100,6 +126,9 @@ fn parse_directive(input: &str) -> IResult<&str, Command> {
         parse_wait,
         parse_shell,
         parse_size,
+        parse_timeout,
+        parse_expect,
+        parse_capture_text,
         parse_capture,
     ))
     .parse(input)
@@ -313,6 +342,10 @@ pub fn parse_script(input: &str) -> Result<Script, String> {
                         parse_type_content(&raw)
                             .map_err(|e| format!("Line {}: {e}", line_num + 1))?,
                     ),
+                    // Empty text would match any screen
+                    Command::Expect(text) if text.is_empty() => {
+                        return Err(format!("Line {}: expect needs some text", line_num + 1));
+                    }
                     other => other,
                 };
                 commands.push(cmd);
@@ -432,6 +465,37 @@ mod tests {
         assert!(result.is_ok());
         let (_, cmd) = result.unwrap();
         assert_eq!(cmd, Command::Capture("out.txt".into()));
+    }
+
+    #[test]
+    fn test_parse_capture_text() {
+        let script = parse_script("@ capture:a.txt\n@ capture-text:b.txt").unwrap();
+        assert_eq!(
+            script.commands,
+            vec![
+                Command::Capture("a.txt".into()),
+                Command::CaptureText("b.txt".into())
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_expect() {
+        let script = parse_script("@ timeout:2.5\n@ expect: #'user/x ").unwrap();
+        assert_eq!(
+            script.commands,
+            vec![
+                Command::SetTimeout(Duration::from_secs_f64(2.5)),
+                Command::Expect("#'user/x".to_string())
+            ]
+        );
+    }
+
+    #[test]
+    fn test_empty_expect_is_an_error() {
+        let err = parse_script("@ expect:  ").unwrap_err();
+        assert!(err.contains("Line 1"), "unexpected error: {err}");
+        assert!(parse_script("@ timeout:-1").is_err());
     }
 
     #[test]

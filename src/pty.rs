@@ -19,7 +19,7 @@
 
 use anyhow::{Context, Result};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::io::{IsTerminal, Read, Write};
 use std::path::Path;
 use std::sync::{
@@ -27,7 +27,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 // RAII guard for terminal raw mode - only enables if stdout is a TTY
 struct RawModeGuard {
@@ -65,6 +65,7 @@ type SharedWriter = Arc<Mutex<Option<Box<dyn Write + Send>>>>;
 type SharedParser = Arc<Mutex<vt100::Parser>>;
 
 pub struct PtyManager {
+    child: Box<dyn Child + Send + Sync>,
     writer: SharedWriter,
     parser: SharedParser,
     reader_thread: Option<thread::JoinHandle<()>>,
@@ -90,7 +91,7 @@ impl PtyManager {
         let mut cmd = CommandBuilder::new(shell);
         cmd.env("TERM", "xterm-256color");
 
-        let _child = pair
+        let child = pair
             .slave
             .spawn_command(cmd)
             .context("Failed to spawn shell in PTY")?;
@@ -172,6 +173,7 @@ impl PtyManager {
         });
 
         Ok(Self {
+            child,
             writer,
             parser,
             reader_thread: Some(reader_thread),
@@ -213,6 +215,22 @@ impl PtyManager {
             .with_context(|| format!("Failed to write capture to {}", path.display()))?;
         Ok(())
     }
+
+    // The visible screen as plain text, one line per row
+    pub fn screen_text(&self) -> Result<String> {
+        let parser = self
+            .parser
+            .lock()
+            .map_err(|_| anyhow::anyhow!("PTY parser lock poisoned"))?;
+        Ok(parser.screen().contents())
+    }
+
+    // Write the visible screen to a file as plain text
+    pub fn capture_text(&self, path: &Path) -> Result<()> {
+        std::fs::write(path, self.screen_text()?)
+            .with_context(|| format!("Failed to write capture to {}", path.display()))?;
+        Ok(())
+    }
 }
 
 impl Drop for PtyManager {
@@ -221,6 +239,18 @@ impl Drop for PtyManager {
         // the detached stdin-forwarding thread's surviving Arc clone.
         if let Ok(mut guard) = self.writer.lock() {
             let _ = guard.take();
+        }
+
+        // EOF only reaches the shell when nothing else is in the foreground. A
+        // program still running there (an editor, say) swallows it, and the
+        // reader below would wait forever, so hang up on the shell instead.
+        // As the session leader, its exit hangs up the foreground job too.
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(50));
+        }
+        if matches!(self.child.try_wait(), Ok(None)) {
+            let _ = self.child.kill();
         }
 
         // Wait for reader thread to ensure all output is flushed before raw mode is disabled

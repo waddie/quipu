@@ -78,6 +78,45 @@ Capture directive
       (capture_path))))
 
 ==================
+Capture text directive
+==================
+
+@ capture-text:screen.txt
+
+---
+
+(source_file
+  (directive
+    (capture_text_directive
+      (capture_path))))
+
+==================
+Timeout directive
+==================
+
+@ timeout:2.5
+
+---
+
+(source_file
+  (directive
+    (timeout_directive
+      (float))))
+
+==================
+Expect directive keeps '#' in its text
+==================
+
+@ expect:#'user/x
+
+---
+
+(source_file
+  (directive
+    (expect_directive
+      (expect_text))))
+
+==================
 Capture directive with absolute path
 ==================
 

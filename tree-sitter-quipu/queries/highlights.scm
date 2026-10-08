@@ -42,6 +42,24 @@
   (capture_path)
   @string.special.path)
 
+(capture_text_directive
+  "capture-text:"
+  @keyword.directive
+  (capture_path)
+  @string.special.path)
+
+(timeout_directive
+  "timeout:"
+  @keyword.directive
+  (float)
+  @constant.numeric.float)
+
+(expect_directive
+  "expect:"
+  @keyword.directive
+  (expect_text)
+  @string)
+
 ; Comments
 ;---------
 
