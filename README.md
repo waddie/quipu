@@ -9,7 +9,15 @@ Yet another terminal keyboard entry scripting tool – good for recording termin
 - Support for special keys and modifier combinations (Ctrl, Alt, Shift)
 - Works with terminal recording tools like asciinema
 
-## Installation
+## Install
+
+```sh
+brew install waddie/brew/quipu
+```
+
+Or `brew tap waddie/brew` first, then install by name.
+
+## Build from source
 
 ```sh
 cargo install --path .
