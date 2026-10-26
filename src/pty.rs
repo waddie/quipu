@@ -21,6 +21,7 @@ use anyhow::{Context, Result};
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
 use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::io::{IsTerminal, Read, Write};
+use std::num::NonZeroU16;
 use std::path::Path;
 use std::sync::{
     Arc, Mutex,
@@ -74,6 +75,12 @@ pub struct PtyManager {
 
 impl PtyManager {
     pub fn new(shell: &str, cols: u16, rows: u16, running: Arc<AtomicBool>) -> Result<Self> {
+        // Check before raw mode so the error prints cleanly
+        let (Some(parser_rows), Some(parser_cols)) = (NonZeroU16::new(rows), NonZeroU16::new(cols))
+        else {
+            anyhow::bail!("Terminal size must be non-zero, got {cols}x{rows}");
+        };
+
         // Enable raw mode before PTY creation for proper escape sequence handling
         let raw_mode_guard = RawModeGuard::new()?;
 
@@ -144,7 +151,8 @@ impl PtyManager {
 
         // Mirror the visible screen at the PTY's dimensions; no scrollback, as a
         // capture only serialises the visible grid.
-        let parser: SharedParser = Arc::new(Mutex::new(vt100::Parser::new(rows, cols, 0)));
+        let parser: SharedParser =
+            Arc::new(Mutex::new(vt100::Parser::new(parser_rows, parser_cols, 0)));
         let reader_parser = parser.clone();
 
         let reader_thread = thread::spawn(move || {
