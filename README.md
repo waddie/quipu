@@ -20,15 +20,15 @@ Or `brew tap waddie/brew` first, then install by name.
 ## Build from source
 
 ```sh
-cargo install --path .
-```
-
-Or build from source:
-
-```sh
 git clone https://github.com/waddie/quipu.git
 cd quipu
 cargo build --release
+```
+
+Install with:
+
+```sh
+cargo install --path .
 ```
 
 ## Usage
